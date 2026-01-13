@@ -7,7 +7,7 @@ public partial class Form1 : Form
 {
     private const string savefilename = "config.json";
     private readonly string appDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HytaleDownloader");
-    private JsonSettings jsonSettings;
+    private readonly JsonSettings jsonSettings;
 
     public Form1()
     {

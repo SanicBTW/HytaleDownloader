@@ -9,7 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="SharpCompress" Version="0.45.0-beta.73" />
+      <PackageReference Include="SevenZipExtractor" Version="1.0.19" />
     </ItemGroup>
 
 </Project>

@@ -51,6 +51,7 @@ partial class Form1
         hytale_location_selector.TabIndex = 0;
         hytale_location_selector.Text = "Select Hytale install location";
         hytale_location_selector.UseVisualStyleBackColor = true;
+        hytale_location_selector.Click += Hytale_location_selectorOnClick;
         //
         // hytale_location_show
         //
@@ -81,6 +82,7 @@ partial class Form1
         jre_location_selector.TabIndex = 3;
         jre_location_selector.Text = "Select JRE install location";
         jre_location_selector.UseVisualStyleBackColor = true;
+        jre_location_selector.Click += Jre_location_selectorOnClick;
         //
         // progressBar1
         //
@@ -163,6 +165,7 @@ partial class Form1
         AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
         ClientSize = new System.Drawing.Size(668, 209);
         SizeGripStyle = SizeGripStyle.Hide;
+        FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
         MaximizeBox = false;
         Controls.Add(buylink);
         Controls.Add(playbtn);

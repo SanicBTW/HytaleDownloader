@@ -6,6 +6,8 @@ I found a way to be able to play Hytale without the need of an account thanks to
 
 The project was quickly made after finding out the process arguments and stuff, the UI isn't the neatest but atleast it works properly.
 
+Also this is only meant for Windows.
+
 ## The reality
 
 You are playing on **OFFLINE** mode, thus no online features are available (multiplayer, servers, etc) please, [go buy the pre-access](https://store.hytale.com/) and support the team behind Hytale.

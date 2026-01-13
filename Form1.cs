@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace HytaleDownloader;
 
+// TODO: Better error management and logging?
 public partial class Form1 : Form
 {
     private const string savefilename = "config.json";
@@ -33,6 +35,15 @@ public partial class Form1 : Form
 
     private void Form1_Load(object sender, EventArgs e)
     {
+        DynPayloadJson? payloadInfo = fetchPayloadInfo();
+        if (payloadInfo == null)
+        {
+            MessageBox.Show("Failed to fetch payload info", "Fatal failure", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Application.Exit();
+        }
+
+        // uhh save cache? not for now lolz
+
         usernameb.Text = jsonSettings.Name;
         uuid_shower.Text = jsonSettings.Uuid.ToString();
 
@@ -40,19 +51,14 @@ public partial class Form1 : Form
         if (string.IsNullOrWhiteSpace(usernameb.Text))
             return;
 
-        progressBar1.Value = 25;
-
-        // uuid is always gonna be present but just in case
+        // uuid is always gonna be present but we gonna ignore that lmao
 
         if (jsonSettings.HytaleLocation == null)
             return;
-
         hytale_location_show.Text = jsonSettings.HytaleLocation;
-        progressBar1.Value = 50;
 
         if (jsonSettings.JreLocation == null)
             return;
-
         jre_location_show.Text = jsonSettings.JreLocation;
 
         progressBar1.Value = 100;
@@ -125,11 +131,43 @@ public partial class Form1 : Form
         }
         catch (Exception exception)
         {
-            Console.WriteLine(exception);
+            MessageBox.Show(exception.Message, "Failed to start HytaleClient.exe", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
         finally
         {
-            Environment.Exit(0);
+            Application.Exit();
         }
+    }
+
+    // async someday, im sorry folks!
+    private DynPayloadJson? fetchPayloadInfo()
+    {
+        using HttpClient client = new HttpClient();
+        try
+        {
+            // hardcoded mb!!
+            string json = client.GetStringAsync(
+                "https://pub-f3aea920c9fb44f28d610fd4d1435731.r2.dev/Cracks/hytalv1/PayloadDefinitions.json")
+                .GetAwaiter()
+                .GetResult();
+
+            return JsonSerializer.Deserialize<DynPayloadJson>(json)!;
+        }
+        catch
+        {
+            progressBar1.ForeColor = Color.Red;
+            progressBar1.Value = 100;
+        }
+
+        return null;
+    }
+
+    private static string computeSha256(string filePath)
+    {
+        using FileStream stream = File.OpenRead(filePath);
+        using SHA256 sha = SHA256.Create();
+
+        byte[] hash = sha.ComputeHash(stream);
+        return Convert.ToHexString(hash).ToLowerInvariant();
     }
 }

@@ -108,7 +108,7 @@ partial class Form1
         label2.Name = "label2";
         label2.Size = new System.Drawing.Size(505, 15);
         label2.TabIndex = 7;
-        label2.Text = ("You\'re playing in offline mode, no online features will be available during the g" + "ameplay, please");
+        label2.Text = ("You\'re playing in offline mode, no online features will be available during the gameplay, please");
         //
         // uuid_shower
         //

@@ -1,28 +1,18 @@
 using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text.Json;
+using HytaleDownloader.Threading;
+using HytaleDownloader.Enums;
 using SevenZipExtractor;
 
 namespace HytaleDownloader;
-
-internal enum PayloadTarget
-{
-    Hytale,
-    Jre
-}
-
-internal enum PayloadBtnState
-{
-    Locate,
-    Install,
-    ReInstall
-}
 
 // TODO: Better error management and logging?
 // TODO: Avoid duplicate code!!
 // TODO: Make blocking parts multi threaded (HttpClient and stuff)
 // TODO: Improve the progress check
 // TODO: Do not enable the play button until the HytaleClient is found
+// hey uhh sanco here, I DID NOT need the scheduler to check EVERY SECOND, i think a filesystem watcher was more than enough?
 public partial class Form1 : Form
 {
     private const string savefilename = "config.json";
@@ -38,6 +28,8 @@ public partial class Form1 : Form
     public Form1()
     {
         InitializeComponent();
+        Scheduler.Initialize();
+        //ThreadManager.Initialize();
 
         if (!Directory.Exists(appDataFolder))
             Directory.CreateDirectory(appDataFolder);
@@ -74,8 +66,8 @@ public partial class Form1 : Form
 
         usernameb.Text = jsonSettings.Name;
         uuid_shower.Text = jsonSettings.Uuid.ToString();
-        hytale_location_selector.Tag = PayloadBtnState.Locate;
-        jre_location_selector.Tag = PayloadBtnState.Locate;
+        hytale_location_selector.Tag = PayloadButtonState.Locate;
+        jre_location_selector.Tag = PayloadButtonState.Locate;
 
         bool hasHytalePath = jsonSettings.HytaleLocation != null;
         bool hasJrePath = jsonSettings.JreLocation != null;
@@ -90,13 +82,13 @@ public partial class Form1 : Form
             if (!checkInstalled(PayloadTarget.Hytale))
             {
                 hytale_location_selector.Text = "Install Hytale";
-                hytale_location_selector.Tag = PayloadBtnState.Install;
+                hytale_location_selector.Tag = PayloadButtonState.Install;
                 isReady = false;
             }
             else
             {
                 hytale_location_selector.Text = "Re-install Hytale";
-                hytale_location_selector.Tag = PayloadBtnState.ReInstall;
+                hytale_location_selector.Tag = PayloadButtonState.ReInstall;
             }
         }
 
@@ -107,13 +99,13 @@ public partial class Form1 : Form
             if (!checkInstalled(PayloadTarget.Jre))
             {
                 jre_location_selector.Text = "Install Jre";
-                jre_location_selector.Tag = PayloadBtnState.Install;
+                jre_location_selector.Tag = PayloadButtonState.Install;
                 isReady = false;
             }
             else
             {
                 jre_location_selector.Text = "Re-install Jre";
-                jre_location_selector.Tag = PayloadBtnState.ReInstall;
+                jre_location_selector.Tag = PayloadButtonState.ReInstall;
             }
         }
 
@@ -240,16 +232,15 @@ public partial class Form1 : Form
 
     private void setChangeablesState(bool state)
     {
-        PayloadBtnState hytaleBtnState = (PayloadBtnState)hytale_location_selector.Tag!;
-        PayloadBtnState jreBtnState = (PayloadBtnState)jre_location_selector.Tag!;
+        PayloadButtonState hytaleBtnState = (PayloadButtonState)hytale_location_selector.Tag!;
+        PayloadButtonState jreBtnState = (PayloadButtonState)jre_location_selector.Tag!;
 
-        hytale_location_selector.Enabled = hytaleBtnState != PayloadBtnState.ReInstall && state;
-        jre_location_selector.Enabled = jreBtnState != PayloadBtnState.ReInstall && state;
-
+        hytale_location_selector.Enabled = state;
+        jre_location_selector.Enabled = state;
         genuuid.Enabled = state;
         usernameb.Enabled = state;
 
-        if (hytaleBtnState == PayloadBtnState.ReInstall && jreBtnState == PayloadBtnState.ReInstall)
+        if (hytaleBtnState == PayloadButtonState.ReInstall && jreBtnState == PayloadButtonState.ReInstall)
             playbtn.Enabled = true;
     }
 
@@ -298,11 +289,11 @@ public partial class Form1 : Form
     // should handle errors bruh
     private void initDownload(PayloadTarget targetPayload, Button targetBtn, string pickDesc, string onLocate = "", string onInstall = "")
     {
-        PayloadBtnState state = (PayloadBtnState)targetBtn.Tag!;
+        PayloadButtonState state = (PayloadButtonState)targetBtn.Tag!;
 
         switch (state)
         {
-            case PayloadBtnState.Locate:
+            case PayloadButtonState.Locate:
                 string? folderPick = pickFolder(pickDesc, appDataFolder);
                 if (folderPick == null)
                     return;
@@ -322,10 +313,10 @@ public partial class Form1 : Form
                 writeSettings();
 
                 targetBtn.Text = onLocate;
-                targetBtn.Tag = PayloadBtnState.Install;
+                targetBtn.Tag = PayloadButtonState.Install;
                 break;
 
-            case PayloadBtnState.Install:
+            case PayloadButtonState.Install:
                 progressBar1.Value = 0;
                 setChangeablesState(false);
 
@@ -359,7 +350,7 @@ public partial class Form1 : Form
 
                     targetBtn.Text = onInstall;
                     targetBtn.Enabled = false;
-                    targetBtn.Tag = PayloadBtnState.ReInstall;
+                    targetBtn.Tag = PayloadButtonState.ReInstall;
 
                     setChangeablesState(true);
                     progressBar1.Value = 100;
@@ -370,7 +361,7 @@ public partial class Form1 : Form
                 }
                 break;
 
-            case PayloadBtnState.ReInstall:
+            case PayloadButtonState.ReInstall:
                 MessageBox.Show("If willing to reinstall the game, remove the extracted content in the selected folder and re-open the app.", "WIP", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 break;
         }

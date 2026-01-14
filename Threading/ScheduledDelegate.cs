@@ -140,6 +140,8 @@ public class ScheduledDelegate : IComparable<ScheduledDelegate>
         }
     }
 
+    public override string ToString() => $"method \"{Task?.Method}\" targeting \"{Task?.Target}\" executing at {ExecutionTime:N0} with repeat {RepeatInterval}";
+
     // ReSharper disable once CompareOfFloatsByEqualityOperator
     public int CompareTo(ScheduledDelegate? other) => ExecutionTime == other?.ExecutionTime ? -1 : ExecutionTime.CompareTo(other?.ExecutionTime);
 }

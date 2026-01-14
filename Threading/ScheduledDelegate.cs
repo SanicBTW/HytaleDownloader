@@ -1,10 +1,13 @@
 using System.Diagnostics;
 using HytaleDownloader.Enums;
+// ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable FieldCanBeMadeReadOnly.Global
 
 namespace HytaleDownloader.Threading;
 
 // https://github.com/ppy/osu-framework/blob/0c8bac9b65bbbbb5e1f2f2b5ea4bed59baa4b620/osu.Framework/Threading/ScheduledDelegate.cs
-public class ScheduledDelegate
+// ReSharper disable once ClassWithVirtualMembersNeverInherited.Global
+public class ScheduledDelegate : IComparable<ScheduledDelegate>
 {
     /// <summary>
     /// The earliest ElapsedTime value at which this task will be executed via a <see cref="Scheduler"/>.
@@ -136,4 +139,7 @@ public class ScheduledDelegate
             }
         }
     }
+
+    // ReSharper disable once CompareOfFloatsByEqualityOperator
+    public int CompareTo(ScheduledDelegate? other) => ExecutionTime == other?.ExecutionTime ? -1 : ExecutionTime.CompareTo(other?.ExecutionTime);
 }

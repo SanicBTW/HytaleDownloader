@@ -23,9 +23,6 @@ public static class Scheduler
     private static readonly List<ScheduledDelegate> timed_tasks = [];
     private static readonly List<ScheduledDelegate> per_update_tasks = [];
 
-    // to not exhaust the thread
-    private static readonly AutoResetEvent task_available = new(false);
-
     private static double currentTime => stopwatch.ElapsedMilliseconds;
     private static readonly object queue_lock = new();
 
@@ -60,10 +57,10 @@ public static class Scheduler
     private static void update()
     {
         // running in the dedicated thread
+        // this is probably not the best way, but im not looking to implement the clocks stuff n shi
+        // and the auto reset event wasnt working properly soo thread sleep itll be lol
         while (true)
         {
-            task_available.WaitOne();
-
             bool hasTimedTasks = timed_tasks.Count > 0;
             bool hasPerUpdateTasks = per_update_tasks.Count > 0;
 
@@ -79,7 +76,10 @@ public static class Scheduler
             int countToRun = run_queue.Count;
 
             if (countToRun == 0)
-                return; // avoid taking out a lock via getNextTask() if there are no items.
+            {
+                Thread.Sleep(1);
+                continue; // avoid taking out a lock via getNextTask() if there are no items.
+            }
 
             int countRun = 0;
 
@@ -96,9 +96,7 @@ public static class Scheduler
                     break;
             }
 
-            // re-execute the update call
-            if (!hasTimedTasks || hasPerUpdateTasks)
-                task_available.Set();
+            Thread.Sleep(1);
         }
 
         // ReSharper disable once FunctionNeverReturns
@@ -288,7 +286,6 @@ public static class Scheduler
         lock (queue_lock)
         {
             run_queue.Enqueue(task);
-            task_available.Set(); // trigger the event to execute the thread again
             if (run_queue.Count % log_excesssive_queue_length_interval == 0)
                 Console.WriteLine($"{nameof(Scheduler)} has {run_queue.Count} tasks pending");
         }

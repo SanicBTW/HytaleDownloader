@@ -1,141 +1,89 @@
 using System.Diagnostics;
-using System.Security.Cryptography;
-using System.Text.Json;
+using HytaleDownloader.Configuration;
 using HytaleDownloader.Threading;
 using HytaleDownloader.Enums;
-using SevenZipExtractor;
+using HytaleDownloader.Events;
+using HytaleDownloader.FileSystem;
+using HytaleDownloader.Managers;
 
 namespace HytaleDownloader;
 
 // TODO: Better error management and logging?
-// TODO: Avoid duplicate code!!
-// TODO: Make blocking parts multi threaded (HttpClient and stuff)
 // TODO: Improve the progress check
-// TODO: Do not enable the play button until the HytaleClient is found
 // hey uhh sanco here, I DID NOT need the scheduler to check EVERY SECOND, i think a filesystem watcher was more than enough?
 public partial class Form1 : Form
 {
-    private const string savefilename = "config.json";
-    private const string hytalepayloadname = "hytaleLatest.7z"; // it may not be the latest but the latest version available that i published
-    private const string jrepayloadname = "jreLatest.7z"; // the bundled jre with hytale really
-
-    private readonly string appDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "HytaleDownloader");
-    private string downloadFolder => Path.Combine(appDataFolder, "downloads"); // separate the origin to the extraction (installation) folder
-    private readonly JsonSettings jsonSettings;
-
-    private DynPayloadJson payloadJson = new(); // its never gonna be empty anyways
-
     public Form1()
     {
         InitializeComponent();
+
         Scheduler.Initialize();
-        //ThreadManager.Initialize();
 
-        if (!Directory.Exists(appDataFolder))
-            Directory.CreateDirectory(appDataFolder);
+        AppFolders.Initialize();
+        Config.Initialize();
 
-        if (!Directory.Exists(downloadFolder))
-            Directory.CreateDirectory(downloadFolder);
-
-        string configPath = Path.Combine(appDataFolder, savefilename);
-        if (File.Exists(configPath))
-        {
-            using StreamReader streamReader = File.OpenText(configPath);
-            string content = streamReader.ReadToEnd();
-            jsonSettings = JsonSerializer.Deserialize<JsonSettings>(content)!;
-        }
-        else
-        {
-            // write for the first time
-            jsonSettings = new JsonSettings();
-            writeSettings();
-        }
+        DownloadManager.Initialize();
     }
 
     private void Form1_Load(object sender, EventArgs e)
     {
-        // uhh save cache? not for now lolz
-        DynPayloadJson? payloadInfo = fetchPayloadInfo();
-        if (payloadInfo == null)
-        {
-            MessageBox.Show("Failed to fetch payload info", "Fatal failure", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            Application.Exit();
-            return;
-        }
-        payloadJson = payloadInfo;
+        // should make a quick wrapper for wrapping the event calls into the main thread but uhhhh
+        EventManager.Register<IntValueEvent>(EventConstants.UPDATE_PROGRESS_BAR, (ev) =>
+            Scheduler.Add(evn => progressBar1.Value = evn.Number, ev, false));
+        EventManager.Register<ColorChangeEvent>(EventConstants.CHANGE_PROGRESS_BAR_COLOR, (ev) =>
+            Scheduler.Add(evn => progressBar1.ForeColor = evn.Color, ev, false));
+        EventManager.Register<UpdateLocationTextBoxEvent>(EventConstants.UPDATE_LOCATION_TEXTBOX, (ev) =>
+            Scheduler.Add(updateLocations, ev, false));
+        EventManager.Register<BoolEvent>(EventConstants.STATE_TOGGLEABLES, (ev) =>
+            Scheduler.Add(refreshUi, ev, false));
+        EventManager.Register<Event>(EventConstants.CHECK_PLAY_AVAILABILITY, _ => Scheduler.Add(canPlay, false));
+        EventManager.Register<Event>(EventConstants.APP_READY, _ => Scheduler.Add(validateConfig, false));
 
-        usernameb.Text = jsonSettings.Name;
-        uuid_shower.Text = jsonSettings.Uuid.ToString();
-        hytale_location_selector.Tag = PayloadButtonState.Locate;
-        jre_location_selector.Tag = PayloadButtonState.Locate;
+        PayloadsManager.Initialize();
+    }
 
-        bool hasHytalePath = jsonSettings.HytaleLocation != null;
-        bool hasJrePath = jsonSettings.JreLocation != null;
-        bool isReady = (hasHytalePath & hasJrePath);
+    private void validateConfig()
+    {
+        usernameb.Enabled = genuuid.Enabled = hytale_location_selector.Enabled = jre_location_selector.Enabled = true;
+
+        usernameb.Text = Config.BackedConfig.Name;
+        uuid_shower.Text = Config.BackedConfig.Uuid.ToString();
+
+        hytale_location_selector.Enabled = jre_location_selector.Enabled = true;
+        hytale_location_selector.Tag = jre_location_selector.Tag = PayloadButtonState.Locate;
+
+        bool hasHytalePath = Config.BackedConfig.HytaleLocation != null;
+        bool hasJrePath = Config.BackedConfig.JreLocation != null;
+
         // validating
-        // uuid is always gonna be present but we gonna ignore that lmao
+        // uuid is always gonna be present so we gonna ignore that check lmao
         // once its installed you arent able to change it anymore, unless the json file is modified, should change this however...
         if (hasHytalePath)
         {
-            hytale_location_show.Text = jsonSettings.HytaleLocation;
-
-            if (!checkInstalled(PayloadTarget.Hytale))
-            {
-                hytale_location_selector.Text = "Install Hytale";
-                hytale_location_selector.Tag = PayloadButtonState.Install;
-                isReady = false;
-            }
-            else
-            {
-                hytale_location_selector.Text = "Re-install Hytale";
-                hytale_location_selector.Tag = PayloadButtonState.ReInstall;
-            }
+            hytale_location_show.Text = Config.BackedConfig.HytaleLocation;
+            updateButtonState(PayloadTarget.Hytale, hytale_location_selector, "Hytale");
         }
 
         if (hasJrePath)
         {
-            jre_location_show.Text = jsonSettings.JreLocation;
-
-            if (!checkInstalled(PayloadTarget.Jre))
-            {
-                jre_location_selector.Text = "Install Jre";
-                jre_location_selector.Tag = PayloadButtonState.Install;
-                isReady = false;
-            }
-            else
-            {
-                jre_location_selector.Text = "Re-install Jre";
-                jre_location_selector.Tag = PayloadButtonState.ReInstall;
-            }
+            jre_location_show.Text = Config.BackedConfig.JreLocation;
+            updateButtonState(PayloadTarget.Jre, jre_location_selector, "JRE");
         }
 
-        if (isReady)
-        {
-            progressBar1.Value = 100;
-            playbtn.Enabled = true;
-        }
+        canPlay();
     }
 
     private void genuuid_Click(object sender, EventArgs e)
     {
-        jsonSettings.Uuid = Guid.NewGuid();
-        uuid_shower.Text = jsonSettings.Uuid.ToString();
-        writeSettings();
+        Config.BackedConfig.Uuid = Guid.NewGuid();
+        uuid_shower.Text = Config.BackedConfig.Uuid.ToString();
+        Config.ScheduleSave();
     }
 
     private void usernameb_TextChanged(object sender, EventArgs e)
     {
-        jsonSettings.Name = usernameb.Text;
-        writeSettings();
-    }
-
-    // should use an open stream to write without issues but i should be fine
-    private void writeSettings()
-    {
-        string content = JsonSerializer.Serialize(jsonSettings, new JsonSerializerOptions() { WriteIndented = true });
-        using StreamWriter streamWriter = File.CreateText(Path.Combine(appDataFolder, savefilename));
-        streamWriter.Write(content);
-        streamWriter.Close();
+        Config.BackedConfig.Name = usernameb.Text;
+        Config.ScheduleSave();
     }
 
     private void buylink_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
@@ -144,283 +92,113 @@ public partial class Form1 : Form
         Process.Start(new ProcessStartInfo("https://store.hytale.com/") { UseShellExecute = true });
     }
 
-    private void PlaybtnOnClick(object? sender, EventArgs e)
-    {
-        // yea we doin last minute checks here bruh
-        string hytaleFolder =
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Hytale");
-        if (!Directory.Exists(hytaleFolder))
-            Directory.CreateDirectory(hytaleFolder);
-
-        string userDataFolder = Path.Combine(hytaleFolder, "UserData");
-        if (!Directory.Exists(userDataFolder))
-            Directory.CreateDirectory(userDataFolder);
-
-        // forced but matches the archives sooo sorry lol
-        string hytaleInstallation = getPathOfInterest(PayloadTarget.Hytale);
-        string jreFolder = Path.Combine(getPathOfInterest(PayloadTarget.Jre), "java.exe");
-
-        /*
-         * .\HytaleClient.exe
-         * --app-dir C:\Users\WDAGUtilityAccount\Desktop\latest
-         * --user-dir C:\Users\WDAGUtilityAccount\AppData\Roaming\Hytale\UserData
-         * --java-exec C:\Users\WDAGUtilityAccount\Desktop\jre\latest\bin\java.exe
-         * --auth-mode offline
-         * --uuid $name
-         * --name $name
-         */
-        ProcessStartInfo psi = new ProcessStartInfo()
-        {
-            UseShellExecute = true,
-            FileName = Path.Combine(hytaleInstallation, "Client", "HytaleClient.exe"),
-            Arguments = $"--app-dir {hytaleInstallation} --user-dir {userDataFolder} --java-exec {jreFolder} --auth-mode offline --uuid {jsonSettings.Uuid.ToString()} --name {jsonSettings.Name}"
-        };
-
-        try
-        {
-            Process.Start(psi);
-        }
-        catch (Exception exception)
-        {
-            MessageBox.Show(exception.Message, "Failed to start HytaleClient.exe", MessageBoxButtons.OK, MessageBoxIcon.Error);
-        }
-        finally
-        {
-            Application.Exit();
-        }
-    }
+    private void PlaybtnOnClick(object? sender, EventArgs e) => Hytale.Run();
 
     private void Hytale_location_selectorOnClick(object? sender, EventArgs e)
     {
-        initDownload(PayloadTarget.Hytale, hytale_location_selector,
+        handleBtnClick(PayloadTarget.Hytale, hytale_location_selector,
             "Select the folder where you want to install Hytale (separate the folders for clarity between JRE and Hytale)",
-            "Install Hytale", "Re-install Hytale");
+            "Download Hytale", "Install Hytale", "Re-install Hytale");
     }
 
     private void Jre_location_selectorOnClick(object? sender, EventArgs e)
     {
-        initDownload(PayloadTarget.Jre, jre_location_selector,
+        handleBtnClick(PayloadTarget.Jre, jre_location_selector,
             "Select the folder where you want to install the JRE (separate the folders for clarity between JRE and Hytale)",
-            "Install JRE", "Re-install JRE");
+            "Download JRE", "Install JRE", "Re-install JRE");
     }
 
-    private string getPathOfInterest(PayloadTarget target)
+    private void updateButtonState(PayloadTarget target, Button targetBtn, string content)
     {
-        return target switch
+        bool isDownloaded = DownloadManager.IsDownloaded(target);
+        bool isInstalled = AppFolders.IsInstalled(target);
+
+        if (!isDownloaded && !isInstalled)
         {
-            PayloadTarget.Hytale => Path.Combine(jsonSettings.HytaleLocation!, "latest"),
-            PayloadTarget.Jre => Path.Combine(jsonSettings.JreLocation!, "latest", "bin"),
-            _ => throw new ArgumentOutOfRangeException(nameof(target), target, null)
-        };
-    }
-
-    private bool checkInstalled(PayloadTarget target)
-    {
-        return target switch
+            targetBtn.Text = $"Download {content}";
+            targetBtn.Tag = PayloadButtonState.Download;
+        }
+        else if (isDownloaded && !isInstalled)
         {
-            PayloadTarget.Hytale =>
-                Path.Exists(
-                    Path.Combine(getPathOfInterest(PayloadTarget.Hytale), "Client", "HytaleClient.exe")
-                    ),
-            PayloadTarget.Jre =>
-                Path.Exists(
-                    Path.Combine(getPathOfInterest(PayloadTarget.Jre), "java.exe")
-                    ),
-            _ => throw new ArgumentOutOfRangeException(nameof(target), target, null)
-        };
+            string payloadName = Constants.GetPayloadName(target);
+            string payloadPath = Path.Combine(AppFolders.DOWNLOAD_FOLDER, payloadName);
+            EventManager.TriggerEvent(EventConstants.READY_FOR_EXTRACTION, new ReadyForExtractionEvent(target, payloadPath));
+
+            targetBtn.Text = $"Install {content}";
+            targetBtn.Tag = PayloadButtonState.Install;
+        }
+        else if (isDownloaded && isInstalled)
+        {
+            targetBtn.Text = $"Re-install {content}";
+            targetBtn.Tag = PayloadButtonState.ReInstall;
+        }
     }
 
-    private void setChangeablesState(bool state)
+    private void updateLocations(UpdateLocationTextBoxEvent ev)
     {
+        switch (ev.Target)
+        {
+            case PayloadTarget.Hytale:
+                hytale_location_show.Text = Config.BackedConfig.HytaleLocation;
+                break;
+
+            case PayloadTarget.Jre:
+                jre_location_show.Text = Config.BackedConfig.JreLocation;
+                break;
+        }
+    }
+
+    private void refreshUi(BoolEvent ev)
+    {
+        hytale_location_selector.Enabled = ev.State;
+        jre_location_selector.Enabled = ev.State;
+        genuuid.Enabled = ev.State;
+        usernameb.Enabled = ev.State;
+    }
+
+    private void canPlay()
+    {
+        // we only need to follow these for the 2 cases where this is gonna get called
+        // on the beginning when validating the config and the payload installation (extraction)
         PayloadButtonState hytaleBtnState = (PayloadButtonState)hytale_location_selector.Tag!;
         PayloadButtonState jreBtnState = (PayloadButtonState)jre_location_selector.Tag!;
 
-        hytale_location_selector.Enabled = state;
-        jre_location_selector.Enabled = state;
-        genuuid.Enabled = state;
-        usernameb.Enabled = state;
-
-        if (hytaleBtnState == PayloadButtonState.ReInstall && jreBtnState == PayloadButtonState.ReInstall)
-            playbtn.Enabled = true;
-    }
-
-    // TODO: Move to another class
-    private static string? pickFolder(string description = "", string? initial = null)
-    {
-        using var dialog = new FolderBrowserDialog();
-        dialog.Description = description;
-        dialog.UseDescriptionForTitle = true;
-        dialog.SelectedPath = initial ?? Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-        return dialog.ShowDialog() == DialogResult.OK ? dialog.SelectedPath : null;
-    }
-
-    private static string computeSha256(string filePath)
-    {
-        using FileStream stream = File.OpenRead(filePath);
-        using SHA256 sha = SHA256.Create();
-
-        byte[] hash = sha.ComputeHash(stream);
-        return Convert.ToHexString(hash).ToLowerInvariant();
-    }
-
-    // async someday, im sorry folks!
-    private DynPayloadJson? fetchPayloadInfo()
-    {
-        using HttpClient client = new HttpClient();
-        try
+        if (hytaleBtnState != PayloadButtonState.ReInstall || jreBtnState != PayloadButtonState.ReInstall)
         {
-            // hardcoded mb!!
-            string json = client.GetStringAsync(
-                    "https://pub-f3aea920c9fb44f28d610fd4d1435731.r2.dev/Cracks/hytalv1/PayloadDefinitions.json")
-                .GetAwaiter()
-                .GetResult();
-
-            return JsonSerializer.Deserialize<DynPayloadJson>(json)!;
-        }
-        catch
-        {
-            progressBar1.ForeColor = Color.Red;
-            progressBar1.Value = 100;
+            playbtn.Enabled = false;
+            return;
         }
 
-        return null;
+        playbtn.Enabled = true;
+        progressBar1.Value = 100;
     }
 
-    // should handle errors bruh
-    private void initDownload(PayloadTarget targetPayload, Button targetBtn, string pickDesc, string onLocate = "", string onInstall = "")
+    // the names can be confusing i know,
+    // on locate its used when the folder is located, on download is when the payload is downloaded and on install is when the payload is installed (extracted)
+    private void handleBtnClick(PayloadTarget payloadTarget, Button targetBtn,
+        string pickDesc, string onLocate = "", string onDownload = "", string onInstall = "")
     {
         PayloadButtonState state = (PayloadButtonState)targetBtn.Tag!;
-
         switch (state)
         {
             case PayloadButtonState.Locate:
-                string? folderPick = pickFolder(pickDesc, appDataFolder);
-                if (folderPick == null)
-                    return;
+                EventManager.TriggerEvent(EventConstants.PICK_FOLDER,
+                    new PickFolderEvent(payloadTarget, targetBtn, pickDesc, onLocate));
+                break;
 
-                switch (targetPayload)
-                {
-                    case PayloadTarget.Hytale:
-                        jsonSettings.HytaleLocation = folderPick;
-                        hytale_location_show.Text = folderPick;
-                        break;
-
-                    case PayloadTarget.Jre:
-                        jsonSettings.JreLocation = folderPick;
-                        jre_location_show.Text = folderPick;
-                        break;
-                }
-                writeSettings();
-
-                targetBtn.Text = onLocate;
-                targetBtn.Tag = PayloadButtonState.Install;
+            case PayloadButtonState.Download:
+                EventManager.TriggerEvent(EventConstants.START_DOWNLOAD,
+                    new StartDownloadEvent(payloadTarget, targetBtn, onDownload));
                 break;
 
             case PayloadButtonState.Install:
-                progressBar1.Value = 0;
-                setChangeablesState(false);
-
-                Payload payload = targetPayload switch
-                {
-                    PayloadTarget.Hytale => payloadJson.Hytale!,
-                    PayloadTarget.Jre => payloadJson.Jre!,
-                    _ => throw new ArgumentOutOfRangeException(nameof(targetPayload), targetPayload, null)
-                };
-
-                string payloadName = targetPayload switch
-                {
-                    PayloadTarget.Hytale => hytalepayloadname,
-                    PayloadTarget.Jre => jrepayloadname,
-                    _ => throw new ArgumentOutOfRangeException(nameof(targetPayload), targetPayload, null)
-                };
-
-                string payloadPath = Path.Combine(downloadFolder, payloadName);
-                try
-                {
-                    download(payload.Url!, payloadPath);
-
-                    if (computeSha256(payloadPath) != payload.Sha256)
-                    {
-                        File.Delete(payloadPath);
-                        MessageBox.Show("Corrupted file", "Failed downloading the payload", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return;
-                    }
-
-                    decompress(targetPayload, payloadPath);
-
-                    targetBtn.Text = onInstall;
-                    targetBtn.Enabled = false;
-                    targetBtn.Tag = PayloadButtonState.ReInstall;
-
-                    setChangeablesState(true);
-                    progressBar1.Value = 100;
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e);
-                }
+                EventManager.TriggerEvent(EventConstants.START_EXTRACTION,
+                    new StartExtractionEvent(payloadTarget, targetBtn, onInstall));
                 break;
 
             case PayloadButtonState.ReInstall:
                 MessageBox.Show("If willing to reinstall the game, remove the extracted content in the selected folder and re-open the app.", "WIP", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 break;
         }
-    }
-
-    private void download(string url, string outputPath)
-    {
-        using HttpClient client = new HttpClient();
-        using HttpResponseMessage response = client.GetAsync(
-                url,
-                HttpCompletionOption.ResponseHeadersRead)
-            .GetAwaiter()
-            .GetResult();
-
-        response.EnsureSuccessStatusCode();
-
-        long? total = response.Content.Headers.ContentLength;
-        using Stream input = response.Content
-            .ReadAsStreamAsync()
-            .GetAwaiter()
-            .GetResult();
-
-        using FileStream output = File.Create(outputPath);
-
-        byte[] buffer = new byte[81920];
-        long readTotal = 0;
-        int read;
-
-        while ((read = input.Read(buffer, 0, buffer.Length)) > 0)
-        {
-            output.Write(buffer, 0, read);
-            readTotal += read;
-
-            if (total.HasValue)
-            {
-                int percent = (int)Math.Min(readTotal * 100 / total.Value, 100);
-                progressBar1.Invoke(() => progressBar1.Value = percent);
-            }
-        }
-    }
-
-    private void decompress(PayloadTarget targetPayload, string payloadPath)
-    {
-        string outPath = targetPayload switch
-        {
-            PayloadTarget.Hytale => jsonSettings.HytaleLocation!,
-            PayloadTarget.Jre => jsonSettings.JreLocation!,
-            _ => throw new ArgumentOutOfRangeException(nameof(targetPayload), targetPayload, null)
-        };
-
-        Thread thread = new Thread(() =>
-        {
-            using FileStream streamRead = File.OpenRead(payloadPath);
-            using ArchiveFile archiveFile = new ArchiveFile(streamRead);
-            archiveFile.Extract(outPath, true);
-        })
-        {
-            IsBackground = true
-        };
-        thread.Start();
     }
 }

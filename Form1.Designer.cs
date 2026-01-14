@@ -42,10 +42,11 @@ partial class Form1
         buylink = new System.Windows.Forms.LinkLabel();
         statusStrip1 = new System.Windows.Forms.StatusStrip();
         SuspendLayout();
-        // 
+        //
         // hytale_location_selector
-        // 
+        //
         hytale_location_selector.Anchor = ((System.Windows.Forms.AnchorStyles)(System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));
+        hytale_location_selector.Enabled = false;
         hytale_location_selector.Location = new System.Drawing.Point(489, 12);
         hytale_location_selector.Name = "hytale_location_selector";
         hytale_location_selector.Size = new System.Drawing.Size(167, 37);
@@ -53,9 +54,9 @@ partial class Form1
         hytale_location_selector.Text = "Select Hytale install location";
         hytale_location_selector.UseVisualStyleBackColor = true;
         hytale_location_selector.Click += Hytale_location_selectorOnClick;
-        // 
+        //
         // hytale_location_show
-        // 
+        //
         hytale_location_show.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right));
         hytale_location_show.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
         hytale_location_show.Enabled = false;
@@ -63,9 +64,9 @@ partial class Form1
         hytale_location_show.Name = "hytale_location_show";
         hytale_location_show.Size = new System.Drawing.Size(471, 23);
         hytale_location_show.TabIndex = 1;
-        // 
+        //
         // jre_location_show
-        // 
+        //
         jre_location_show.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right));
         jre_location_show.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
         jre_location_show.Enabled = false;
@@ -73,10 +74,11 @@ partial class Form1
         jre_location_show.Name = "jre_location_show";
         jre_location_show.Size = new System.Drawing.Size(471, 23);
         jre_location_show.TabIndex = 2;
-        // 
+        //
         // jre_location_selector
-        // 
+        //
         jre_location_selector.Anchor = ((System.Windows.Forms.AnchorStyles)(System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));
+        jre_location_selector.Enabled = false;
         jre_location_selector.Location = new System.Drawing.Point(489, 55);
         jre_location_selector.Name = "jre_location_selector";
         jre_location_selector.Size = new System.Drawing.Size(167, 37);
@@ -84,27 +86,28 @@ partial class Form1
         jre_location_selector.Text = "Select JRE install location";
         jre_location_selector.UseVisualStyleBackColor = true;
         jre_location_selector.Click += Jre_location_selectorOnClick;
-        // 
+        //
         // progressBar1
-        // 
+        //
         progressBar1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right));
         progressBar1.Location = new System.Drawing.Point(12, 127);
         progressBar1.Name = "progressBar1";
         progressBar1.Size = new System.Drawing.Size(644, 21);
         progressBar1.TabIndex = 4;
-        // 
+        //
         // usernameb
-        // 
+        //
         usernameb.Anchor = ((System.Windows.Forms.AnchorStyles)(System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left));
+        usernameb.Enabled = false;
         usernameb.Location = new System.Drawing.Point(12, 98);
         usernameb.Name = "usernameb";
         usernameb.PlaceholderText = "In game username";
         usernameb.Size = new System.Drawing.Size(150, 23);
         usernameb.TabIndex = 6;
         usernameb.TextChanged += usernameb_TextChanged;
-        // 
+        //
         // label2
-        // 
+        //
         label2.Anchor = ((System.Windows.Forms.AnchorStyles)(System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left));
         label2.AutoSize = true;
         label2.Location = new System.Drawing.Point(12, 188);
@@ -112,9 +115,9 @@ partial class Form1
         label2.Size = new System.Drawing.Size(505, 15);
         label2.TabIndex = 7;
         label2.Text = ("You\'re playing in offline mode, no online features will be available during the g" + "ameplay, please");
-        // 
+        //
         // uuid_shower
-        // 
+        //
         uuid_shower.Anchor = ((System.Windows.Forms.AnchorStyles)(System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right));
         uuid_shower.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
         uuid_shower.Enabled = false;
@@ -124,10 +127,11 @@ partial class Form1
         uuid_shower.Size = new System.Drawing.Size(255, 23);
         uuid_shower.TabIndex = 8;
         uuid_shower.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-        // 
+        //
         // genuuid
-        // 
+        //
         genuuid.Anchor = ((System.Windows.Forms.AnchorStyles)(System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right));
+        genuuid.Enabled = false;
         genuuid.Location = new System.Drawing.Point(582, 99);
         genuuid.Name = "genuuid";
         genuuid.Size = new System.Drawing.Size(74, 22);
@@ -135,9 +139,9 @@ partial class Form1
         genuuid.Text = "Refresh";
         genuuid.UseVisualStyleBackColor = true;
         genuuid.Click += genuuid_Click;
-        // 
+        //
         // playbtn
-        // 
+        //
         playbtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) | System.Windows.Forms.AnchorStyles.Right));
         playbtn.Enabled = false;
         playbtn.Location = new System.Drawing.Point(12, 154);
@@ -147,9 +151,9 @@ partial class Form1
         playbtn.Text = "Play";
         playbtn.UseVisualStyleBackColor = true;
         playbtn.Click += PlaybtnOnClick;
-        // 
+        //
         // buylink
-        // 
+        //
         buylink.Anchor = ((System.Windows.Forms.AnchorStyles)(System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right));
         buylink.AutoSize = true;
         buylink.Location = new System.Drawing.Point(523, 188);
@@ -159,9 +163,9 @@ partial class Form1
         buylink.TabStop = true;
         buylink.Text = "buy the pre-access";
         buylink.LinkClicked += buylink_LinkClicked;
-        // 
+        //
         // statusStrip1
-        // 
+        //
         statusStrip1.Location = new System.Drawing.Point(0, 217);
         statusStrip1.Name = "statusStrip1";
         statusStrip1.RenderMode = System.Windows.Forms.ToolStripRenderMode.Professional;
@@ -169,9 +173,9 @@ partial class Form1
         statusStrip1.SizingGrip = false;
         statusStrip1.TabIndex = 12;
         statusStrip1.Text = "statusStrip1";
-        // 
+        //
         // Form1
-        // 
+        //
         AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
         AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
         ClientSize = new System.Drawing.Size(668, 239);

@@ -1,15 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace HytaleDownloader;
-
-public class DynPayloadJson
-{
-    [JsonPropertyName("hytale")]
-    public Payload? Hytale { get; set; }
-
-    [JsonPropertyName("jre")]
-    public Payload? Jre { get; set; }
-}
+namespace HytaleDownloader.Data;
 
 public class Payload
 {
